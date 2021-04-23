@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/davecgh/go-spew/spew"
@@ -83,6 +84,12 @@ var (
 )
 
 func getWeather(location string) string {
+	// see if we have the result in the cache
+	val, err := rdb.Get(ctx, location).Result()
+	if err == nil {
+		return val
+	}
+
 	// city name based search
 	//res, err := http.Get("http://api.openweathermap.org/data/2.5/weather?q=" + location + "&appid=84a719ec00c69a35d7821a0ae543b545&units=imperial")
 	// zip code based search (USA)
@@ -120,6 +127,12 @@ func getWeather(location string) string {
 		windDirectionText,
 		weather_instance.Wind.Deg,
 		weather_instance.Name)
+
+	// store the value in redis
+	err = rdb.Set(ctx, location, return_string, 1*time.Minute).Err()
+	if err != nil {
+		panic(err)
+	}
 
 	if err != nil {
 		fmt.Println(err)
@@ -169,6 +182,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 var s *discordgo.Session
 var ctx = context.Background()
+var rdb *redis.Client
 
 func init() {
 	fmt.Println("init")
@@ -178,22 +192,14 @@ func init() {
 		log.Fatalf("Invalid bot parameters: %v", err)
 	}
 
-	rdb := redis.NewClient(&redis.Options{
+	rdb = redis.NewClient(&redis.Options{
 		Addr:     "192.168.86.250:32768",
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
 
-	err = rdb.Set(ctx, "key", "value", 0).Err()
-	if err != nil {
-		panic(err)
-	}
+	fmt.Println("Connected to redis")
 
-	val, err := rdb.Get(ctx, "key").Result()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("key", val)
 }
 
 func main() {

@@ -7,4 +7,5 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/go-redis/redis/v8 v8.8.2
+	golang.org/x/tools/gopls v0.6.10 // indirect
 )
