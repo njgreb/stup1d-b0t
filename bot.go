@@ -83,11 +83,24 @@ var (
 	RemoveCommands = flag.Bool("rmcmd", true, "Remove all commands after shutdowning or not")
 )
 
-func getWeather(location string) string {
+func setUserWeather(user string, location string) (string, error) {
+
+	// store the value in redis
+	err := rdb.Set(ctx, user, location, 0).Err()
+	if err != nil {
+		return "Failed to save preferred weather location.", err
+	}
+
+	weather, err := getWeather(location)
+
+	return "Preferred weather location set, latest weather: " + weather, nil
+}
+
+func getWeather(location string) (string, error) {
 	// see if we have the result in the cache
 	val, err := rdb.Get(ctx, location).Result()
 	if err == nil {
-		return val
+		return val, nil
 	}
 
 	// city name based search
@@ -100,6 +113,10 @@ func getWeather(location string) string {
 	var weather_instance weather
 	json.Unmarshal(body, &weather_instance)
 	spew.Dump(body)
+
+	if len(weather_instance.Weather) == 0 {
+		return "Failed to load weather :(", nil
+	}
 
 	fmt.Printf("%s\n", err)
 
@@ -131,7 +148,7 @@ func getWeather(location string) string {
 	// store the value in redis
 	err = rdb.Set(ctx, location, return_string, 1*time.Minute).Err()
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
 	if err != nil {
@@ -139,10 +156,10 @@ func getWeather(location string) string {
 		return_string = "I derped yo"
 	}
 
-	return return_string
+	return return_string, nil
 }
 
-func getPlainvilleWeather() string {
+func getPlainvilleWeather() (string, error) {
 	return getWeather("Plainville,KS USA")
 }
 
@@ -153,30 +170,76 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	spew.Dump(m)
+	//spew.Dump(m)
 
 	// If the message is "ping" reply with "Pong!"
 	if m.Content == "ping" {
 		s.ChannelMessageSend(m.ChannelID, "Pong!")
+		return
 	}
 
 	// If the message is "pong" reply with "Ping!"
 	if m.Content == "pong" {
 		s.ChannelMessageSend(m.ChannelID, "Ping!")
+		return
 	}
 
 	if m.Content == "weather in gods country" {
-		s.ChannelMessageSend(m.ChannelID, getPlainvilleWeather())
+		weather, err := getPlainvilleWeather()
+
+		if err != nil {
+			weather = "I failed to get Gods weather :("
+		}
+
+		s.ChannelMessageSend(m.ChannelID, weather)
+		return
 	}
 
 	if m.Content == "should jesse ride his bike today" {
 		s.ChannelMessageSend(m.ChannelID, "Yes...but he won't")
+		return
 	}
 
-	if strings.Contains(m.Content, "weather") {
+	if strings.HasPrefix(m.Content, "_weather set") || strings.HasPrefix(m.Content, "_w set") {
 		commandParts := strings.Split(m.Content, " ")
-		fmt.Println("Weather for " + commandParts[1])
-		s.ChannelMessageSend(m.ChannelID, getWeather(commandParts[1]))
+		fmt.Println("Weather set for " + commandParts[2])
+		message, err := setUserWeather(m.Author.Username, commandParts[2])
+
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "failed to set weather")
+		}
+		s.ChannelMessageSend(m.ChannelID, "weather set debug: "+message)
+		return
+	}
+
+	if strings.HasPrefix(m.Content, "_weather") || strings.HasPrefix(m.Content, "_w") {
+		commandParts := strings.Split(m.Content, " ")
+
+		weatherLocation := ""
+
+		if len(commandParts) == 1 {
+			fmt.Println("Getting users prefered weather:" + m.Author.Username)
+			// get the users preferred zip
+			val, err := rdb.Get(ctx, m.Author.Username).Result()
+			if err != nil || val == "" {
+				s.ChannelMessageSend(m.ChannelID, "Failed to load weather without a zip code, use the command right or set a weather zip dork :( "+val)
+				return
+			}
+			weatherLocation = val
+			fmt.Println("weather loc is " + weatherLocation)
+		} else {
+			weatherLocation = commandParts[1]
+		}
+
+		fmt.Println("Weather for " + weatherLocation)
+
+		weather, err := getWeather(weatherLocation)
+
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Failed to load weather :(")
+		}
+		s.ChannelMessageSend(m.ChannelID, weather)
+		return
 	}
 }
 
