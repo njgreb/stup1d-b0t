@@ -17,64 +17,10 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/go-redis/redis/v8"
+	"github.com/njgreb/stup1d-b0t/weatherUtils"
 )
 
 var token string = "ODM2NTg3OTY1MzkxMzA2NzUy.YIgLQg.zSdT2ej90-ELtqgXR6usA4vRSNo"
-
-type coord_weather struct {
-	Lon float64 `json:"lon,omitempty"`
-	Lat float64 `json:"lat,omitempty"`
-}
-
-type weather_weather struct {
-	Id          int    `json:"id,omitempty"`
-	MainW       string `json:"main,omitempty"`
-	Description string `json:"description,omitempty"`
-	Icon        string `json:"icon,omitempty"`
-}
-
-type main_weather struct {
-	Temp      float64 `json:"temp,omitempty"`
-	FeelsLike float64 `json:"feels_like,omitempty"`
-	TempMin   float64 `json:"temp_min,omitempty"`
-	TempMax   float64 `json:"temp_max,omitempty"`
-	Pressure  int     `json:"pressure,omitempty"`
-	Humidity  int     `json:"humidity,omitempty"`
-}
-
-type wind_weather struct {
-	Speed float64 `json:"speed,omitempty"`
-	Deg   int     `json:"deg,omitempty"`
-	Gust  float64 `json:"gust,omitempty"`
-}
-
-type clouds_weather struct {
-	All int `json:"all,omitempty"`
-}
-
-type sys_weather struct {
-	TypeField int    `json:"type,omitempty"`
-	Id        int    `json:"lid,omitempty"`
-	Country   string `json:"country,omitempty"`
-	Sunrise   int    `json:"sunrise,omitempty"`
-	Sunset    int    `json:"sunset,omitempty"`
-}
-
-type weather struct {
-	Coord      coord_weather     `json:"coord"`
-	Weather    []weather_weather `json:"weather"`
-	Base       string            `json:"base"`
-	Main       main_weather      `json:"main"`
-	Visibility int               `json:"visibility"`
-	Wind       wind_weather      `json:"wind"`
-	Clouds     clouds_weather    `json:"clouds"`
-	Dt         int               `json:"dt"`
-	Sys        sys_weather       `json:"sys"`
-	Timezone   int               `json:"timezone"`
-	Id         int               `json:"id"`
-	Name       string            `json:"name"`
-	Cod        int               `json:"cod"`
-}
 
 // Bot parameters
 var (
@@ -110,7 +56,8 @@ func getWeather(location string) (string, error) {
 	spew.Dump(weatherUrl)
 	res, err := http.Get(weatherUrl)
 	body, err := ioutil.ReadAll(res.Body)
-	var weather_instance weather
+
+	var weather_instance weatherUtils.Weather_main
 	json.Unmarshal(body, &weather_instance)
 	spew.Dump(body)
 
