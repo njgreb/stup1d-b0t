@@ -2,18 +2,30 @@ package cache
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/go-redis/redis"
 )
 
 var rdb *redis.Client
+var redisHost string
+var redisPort int
 
 func getConnection() {
 	if rdb == nil {
+		var err error
+		redisHost = os.Getenv("redisHost")
+		redisPort, err = strconv.Atoi(os.Getenv("redisPort"))
+
+		if err != nil {
+			fmt.Println("failed to get redis vals")
+		}
+
 		fmt.Println("Connecting to redis")
 		rdb = redis.NewClient(&redis.Options{
-			Addr:     "192.168.86.250:32768",
+			Addr:     redisHost + ":" + strconv.Itoa(redisPort),
 			Password: "", // no password set
 			DB:       0,  // use default DB
 		})
