@@ -9,6 +9,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/njgreb/stup1d-b0t/cache"
+	"github.com/njgreb/stup1d-b0t/version"
 	"github.com/njgreb/stup1d-b0t/weather"
 )
 
@@ -87,6 +88,11 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	if m.Content == "should jesse ride his bike today" {
 		s.ChannelMessageSend(m.ChannelID, "Yes...but he won't")
+		return
+	}
+
+	if strings.HasPrefix(m.Content, "_version") || strings.HasPrefix(m.Content, "_v") {
+		s.ChannelMessageSend(m.ChannelID, "Currently running stup1d version "+version.Version)
 		return
 	}
 

@@ -1,4 +1,4 @@
-FROM golang:1.16.3-stretch
+FROM golang:1.16.3-alpine
 # create a working directory
 WORKDIR /go/app/
 # add source code
