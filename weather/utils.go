@@ -5,14 +5,54 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/njgreb/stup1d-b0t/cache"
 )
 
-func UpdateWeather() string {
-	return "nothing"
+var weatherApiToken string
+
+func getToken() string {
+	if len(strings.TrimSpace(weatherApiToken)) == 0 {
+		weatherApiToken = os.Getenv("weatherApiToken")
+	}
+
+	return weatherApiToken
+}
+
+func getLatLong(location string) (string, string) {
+
+	// see if we have the result in the cache
+	val := cache.Get("get_lat_lon_" + location)
+	if val != "" {
+		parts := strings.Split(val, ",")
+		fmt.Println("we have this location, we good")
+		return parts[0], parts[1]
+	}
+
+	locationUrl := "http://api.openweathermap.org/geo/1.0/zip?zip=" + location + ",US&appid=" + getToken()
+	spew.Dump(locationUrl)
+	res, err := http.Get(locationUrl)
+
+	if err != nil {
+		fmt.Printf("oh crap, we failed to get the location")
+	}
+
+	body, err := ioutil.ReadAll(res.Body)
+
+	spew.Dump(body)
+
+	var loc encoded_location
+	json.Unmarshal(body, &loc)
+	spew.Dump(loc)
+
+	// store the values in the cache
+	cache.Set("get_lat_lon_"+location, fmt.Sprintf("%f", loc.Lat)+","+fmt.Sprintf("%f", loc.Lon), 0)
+
+	return fmt.Sprintf("%f", loc.Lat), fmt.Sprintf("%f", loc.Lon)
 }
 
 func SetUserWeather(user string, location string) (string, error) {
@@ -29,54 +69,58 @@ func SetUserWeather(user string, location string) (string, error) {
 }
 
 func GetWeather(location string) (string, error) {
+	// get lat/lon of the location provided
+	lat, lon := getLatLong(location)
+
 	// see if we have the result in the cache
-	val := cache.Get(location)
+	val := cache.Get(lat + "," + lon)
 	if val != "" {
 		return val, nil
 	}
 
-	// city name based search
-	//res, err := http.Get("http://api.openweathermap.org/data/2.5/weather?q=" + location + "&appid=84a719ec00c69a35d7821a0ae543b545&units=imperial")
 	// zip code based search (USA)
-	weatherUrl := "http://api.openweathermap.org/data/2.5/weather?zip=" + location + ",US&appid=84a719ec00c69a35d7821a0ae543b545&units=imperial"
+	//weatherUrl := "http://api.openweathermap.org/data/2.5/weather?zip=" + location + ",US&appid=" + getToken() + "&units=imperial"
+	weatherUrl := "https://api.openweathermap.org/data/2.5/onecall?lat=" + lat + "&lon=" + lon + "&appid=" + getToken() + "&units=imperial&exclude=hourly,minutely"
 	spew.Dump(weatherUrl)
 	res, err := http.Get(weatherUrl)
 	body, err := ioutil.ReadAll(res.Body)
 
-	var weather_instance Weather_main
+	var weather_instance one_call_weather
 	json.Unmarshal(body, &weather_instance)
-	spew.Dump(body)
+	//spew.Dump(body)
 
-	if len(weather_instance.Weather) == 0 {
+	if len(weather_instance.Daily) == 0 {
 		return "Failed to load weather :(", nil
 	}
-
-	fmt.Printf("%s\n", err)
 
 	windDirectionText := "West"
 
 	switch {
-	case weather_instance.Wind.Deg > 270 || (weather_instance.Wind.Deg >= 0 && weather_instance.Wind.Deg < 45):
+	case weather_instance.Current.WindDeg > 270 || (weather_instance.Current.WindDeg >= 0 && weather_instance.Current.WindDeg < 45):
 		windDirectionText = "North"
 		break
-	case weather_instance.Wind.Deg >= 45 && weather_instance.Wind.Deg < 135:
+	case weather_instance.Current.WindDeg >= 45 && weather_instance.Current.WindDeg < 135:
 		windDirectionText = "East"
 		break
-	case weather_instance.Wind.Deg >= 135 && weather_instance.Wind.Deg < 215:
+	case weather_instance.Current.WindDeg >= 135 && weather_instance.Current.WindDeg < 215:
 		windDirectionText = "South"
 		break
 	}
 
 	return_string := fmt.Sprintf("%s, %.1fF | High: %.1fF | Low: %.1fF | Humidity: %d%% | Wind: %.1fmph @ %s (%d deg) | %s",
-		weather_instance.Weather[0].MainW,
-		weather_instance.Main.Temp,
-		weather_instance.Main.TempMax,
-		weather_instance.Main.TempMin,
-		weather_instance.Main.Humidity,
-		weather_instance.Wind.Speed,
+		weather_instance.Current.Weather[0].Description,
+		weather_instance.Current.Temp,
+		weather_instance.Daily[0].Temp.Max,
+		weather_instance.Daily[0].Temp.Min,
+		weather_instance.Current.Humidity,
+		weather_instance.Current.WindSpeed,
 		windDirectionText,
-		weather_instance.Wind.Deg,
-		weather_instance.Name)
+		weather_instance.Current.WindDeg,
+		location)
+
+	fmt.Println("here comes the weather baby!")
+	spew.Dump(weather_instance)
+	fmt.Println("ok, thats all the weather")
 
 	// store the value in redis
 	err = cache.Set(location, return_string, 1*time.Minute)
@@ -96,6 +140,81 @@ func GetPlainvilleWeather() (string, error) {
 	return GetWeather("Plainville,KS USA")
 }
 
+// Open weather location struct
+type encoded_location struct {
+	Zip     string  `json:"zip,omitempty"`
+	Name    string  `json:"name,omitempty"`
+	Lat     float32 `json:"lat,omitempty"`
+	Lon     float32 `json:"lon,omitempty"`
+	Country string  `json:"country,omitempty"`
+}
+
+// Open Weather one call struct
+type one_call_weather struct {
+	Lat            float32         `json:"lat,omitempty"`
+	Lon            float32         `json:"lon,omitempty"`
+	Timezone       string          `json:"timezone,omitempty"`
+	TimezoneOffset int             `json:"timezone_offset,omitempty"`
+	Current        current_weather `json:"current,omitmepty"`
+	Daily          []daily_weather
+}
+
+type current_weather struct {
+	Dt         int            `json:"dt,omitempty"`
+	Sunrise    int            `json:"sunrise,omitempty"`
+	Sunset     int            `json:"sunset,omitempty"`
+	Temp       float32        `json:"temp,omitempty"`
+	FeelsLike  float32        `json:"feels_like,omitempty"`
+	Pressure   int            `json:"pressure,omitempty"`
+	Humidity   int            `json:"humidity,omitempty"`
+	DewPoint   float32        `json:"dew_point,omitempty"`
+	Uvi        float32        `json:"uvi,omitempty"`
+	Clouds     int            `json:"clouds,omitempty"`
+	Visibility int            `json:"visibility,omitempty"`
+	WindSpeed  float32        `json:"wind_speed,omitempty"`
+	WindDeg    int            `json:"wind_deg,omitempty"`
+	Weather    []weather_desc `json:"weather,omitempty"`
+}
+
+type daily_weather struct {
+	Dt        int            `json:"dt,omitempty"`
+	Sunrise   int            `json:"sunrise,omitempty"`
+	Sunset    int            `json:"sunset,omitempty"`
+	Moonrise  int            `json:"moonrise,omitempty"`
+	Moonset   int            `json:"moonset,omitempty"`
+	MoonPhase float32        `json:"moonphase,omitempty"`
+	Temp      temps          `json:"temp,omitempty"`
+	FeelsLike temps          `json:"feels_like,omitempty"`
+	Pressure  int            `json:"pressure,omitempty"`
+	Humidity  int            `json:"humidity,omitempty"`
+	DewPoint  float32        `json:"dew_poitn,omitempty"`
+	WindSpeed float32        `json:"wind_speed,omitempty"`
+	WindDeg   int            `json:"wind_deg,omitempty"`
+	WindGust  float32        `json:"wind_gust,omitempty"`
+	Weather   []weather_desc `json:"weather,omitempty"`
+	Clouds    int            `json:"clouds,omitempty"`
+	Pop       int            `json:"pop,omitempty"`
+	Rain      float32        `json:"rain,omitempty"`
+	Uvi       float32        `json:"uvi,omitempty"`
+}
+
+type temps struct {
+	Day   float32 `json:"day,omitempty"`
+	Min   float32 `json:"min,omitempty"`
+	Max   float32 `json:"max,omitempty"`
+	Night float32 `json:"night,omitempty"`
+	Eve   float32 `json:"eve,omitempty"`
+	Morn  float32 `json:"morn,omitempty"`
+}
+
+type weather_desc struct {
+	Id          int    `json:"id,omitempty"`
+	MainW       string `json:"main,omitempty"`
+	Description string `json:"description,omitempty"`
+	Icon        string `json:"icon,omitempty"`
+}
+
+// old weather call struct
 type coord_weather struct {
 	Lon float64 `json:"lon,omitempty"`
 	Lat float64 `json:"lat,omitempty"`

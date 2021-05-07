@@ -22,7 +22,7 @@ var ctx = context.Background()
 func init() {
 	fmt.Println("init")
 
-	fmt.Println("Connected to redis")
+	fmt.Println("init done")
 }
 
 func main() {

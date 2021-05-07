@@ -1,7 +1,6 @@
 package communications
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -9,22 +8,28 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/njgreb/stup1d-b0t/cache"
+	"github.com/njgreb/stup1d-b0t/commands"
 	"github.com/njgreb/stup1d-b0t/version"
 	"github.com/njgreb/stup1d-b0t/weather"
 )
 
 var discord *discordgo.Session
 
-var BotToken string
+var (
+	BotToken      string
+	CommandPrefix string
+)
+
+type discordCommand interface {
+	parse() string
+	run() string
+}
 
 func getSession() {
-	flag.StringVar(&BotToken, "token", "", "Bot access token")
+	BotToken = os.Getenv("botToken")
+	CommandPrefix = os.Getenv("commandPrefix")
 
-	if len(strings.TrimSpace(BotToken)) == 0 {
-		BotToken = os.Getenv("botToken")
-	}
-
-	fmt.Println("Token is now:" + BotToken)
+	fmt.Println("Command Prefix is " + CommandPrefix)
 
 	var err error
 	discord, err = discordgo.New("Bot " + BotToken)
@@ -62,53 +67,52 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	//spew.Dump(m)
+	var response string
+
+	// Show help message
+	if m.Content == CommandPrefix+"help" || m.Content == CommandPrefix+"h" {
+		response = `
+_w set ##### (US Zip code) to set your weather location
+_w to see your weather
+_w ##### (US Zip code) to see weather somewhere in the US
+		`
+	}
 
 	// If the message is "ping" reply with "Pong!"
-	if m.Content == "ping" {
-		s.ChannelMessageSend(m.ChannelID, "Pong!")
-		return
+	if m.Content == CommandPrefix+"ping" {
+		response = commands.Pong(m.Content)
 	}
 
 	// If the message is "pong" reply with "Ping!"
-	if m.Content == "pong" {
-		s.ChannelMessageSend(m.ChannelID, "Ping!")
-		return
+	if m.Content == CommandPrefix+"pong" {
+		response = commands.Ping(m.Content)
 	}
 
 	if m.Content == "weather in gods country" {
-		weather, err := weather.GetPlainvilleWeather()
-
-		if err != nil {
-			weather = "I failed to get Gods weather :("
-		}
-
-		s.ChannelMessageSend(m.ChannelID, weather)
-		return
+		response = commands.WeatherGodsCountry(m.Content)
 	}
 
 	if m.Content == "should jesse ride his bike today" {
-		s.ChannelMessageSend(m.ChannelID, "Yes...but he won't")
-		return
+		response = "Yes...but he won't"
 	}
 
-	if strings.HasPrefix(m.Content, "_version") || strings.HasPrefix(m.Content, "_v") {
-		s.ChannelMessageSend(m.ChannelID, "Currently running stup1d version "+version.Version)
-		return
+	if strings.HasPrefix(m.Content, CommandPrefix+"version") || strings.HasPrefix(m.Content, CommandPrefix+"v") {
+		response = "Currently running stup1d version " + version.Version
 	}
 
-	if strings.HasPrefix(m.Content, "_weather set") || strings.HasPrefix(m.Content, "_w set") {
+	if strings.HasPrefix(m.Content, CommandPrefix+"weather set") || strings.HasPrefix(m.Content, CommandPrefix+"w set") {
 		commandParts := strings.Split(m.Content, " ")
 		fmt.Println("Weather set for " + commandParts[2])
-		message, err := weather.SetUserWeather(m.Author.Username, commandParts[2])
+		message, err := weather.SetUserWeather(m.Author.ID, commandParts[2])
 
 		if err != nil {
-			s.ChannelMessageSend(m.ChannelID, "failed to set weather")
+			response = "failed to set weather"
+		} else {
+			response = "Weather set: " + message
 		}
-		s.ChannelMessageSend(m.ChannelID, "weather set debug: "+message)
-		return
 	}
 
-	if strings.HasPrefix(m.Content, "_weather") || strings.HasPrefix(m.Content, "_w") {
+	if strings.HasPrefix(m.Content, CommandPrefix+"weather") || strings.HasPrefix(m.Content, CommandPrefix+"w") {
 		commandParts := strings.Split(m.Content, " ")
 
 		weatherLocation := ""
@@ -118,7 +122,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			// get the users preferred zip
 			val := cache.Get(m.Author.Username)
 			if val == "" {
-				s.ChannelMessageSend(m.ChannelID, "Failed to load weather without a zip code, use the command right or set a weather zip dork :( "+val)
+				response = "Failed to load weather without a zip code, use the command right or set a weather zip dork :( " + val
 				return
 			}
 			weatherLocation = val
@@ -132,9 +136,10 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		weather, err := weather.GetWeather(weatherLocation)
 
 		if err != nil {
-			s.ChannelMessageSend(m.ChannelID, "Failed to load weather :(")
+			response = "Failed to load weather :("
 		}
-		s.ChannelMessageSend(m.ChannelID, weather)
-		return
+		response = weather
 	}
+
+	s.ChannelMessageSend(m.ChannelID, response)
 }
