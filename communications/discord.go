@@ -120,7 +120,7 @@ _w ##### (US Zip code) to see weather somewhere in the US
 		if len(commandParts) == 1 {
 			fmt.Println("Getting users prefered weather:" + m.Author.Username)
 			// get the users preferred zip
-			val := cache.Get(m.Author.Username)
+			val := cache.Get(m.Author.ID)
 			if val == "" {
 				response = "Failed to load weather without a zip code, use the command right or set a weather zip dork :( " + val
 				return
