@@ -63,25 +63,30 @@ func SetUserWeather(user string, location string) (string, error) {
 		return "Failed to save preferred weather location.", err
 	}
 
+	fmt.Printf("Location set, getting weather for %s, %s\n", user, location)
 	weatherString, err := GetWeather(location)
 
-	return "Preferred weather location set, latest weather: " + weatherString, nil
+	return "Preferred weather location set, latest weather:\n" + weatherString, nil
 }
 
 func GetWeather(location string) (string, error) {
 	// get lat/lon of the location provided
 	lat, lon := getLatLong(location)
 
+	fmt.Printf("Loading weather for %s,%s\n", lat, lon)
+
 	// see if we have the result in the cache
 	val := cache.Get(lat + "," + lon)
 	if val != "" {
+		fmt.Printf("Weather found in cache\n")
 		return val, nil
 	}
 
 	// zip code based search (USA)
 	//weatherUrl := "http://api.openweathermap.org/data/2.5/weather?zip=" + location + ",US&appid=" + getToken() + "&units=imperial"
 	weatherUrl := "https://api.openweathermap.org/data/2.5/onecall?lat=" + lat + "&lon=" + lon + "&appid=" + getToken() + "&units=imperial&exclude=hourly,minutely"
-	spew.Dump(weatherUrl)
+	//spew.Dump(weatherUrl)
+	fmt.Printf("Weather URL is: %s\n", weatherUrl)
 	res, err := http.Get(weatherUrl)
 	body, err := ioutil.ReadAll(res.Body)
 
@@ -119,7 +124,7 @@ func GetWeather(location string) (string, error) {
 		location)
 
 	fmt.Println("here comes the weather baby!")
-	spew.Dump(weather_instance)
+	//spew.Dump(weather_instance)
 	fmt.Println("ok, thats all the weather")
 
 	// store the value in redis

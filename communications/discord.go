@@ -18,6 +18,7 @@ var discord *discordgo.Session
 var (
 	BotToken      string
 	CommandPrefix string
+	BotUserId     string
 )
 
 type discordCommand interface {
@@ -33,6 +34,9 @@ func getSession() {
 
 	var err error
 	discord, err = discordgo.New("Bot " + BotToken)
+
+	botUser, err := discord.User("@me")
+	BotUserId = botUser.ID
 
 	if err != nil {
 		log.Fatalf("Invalid bot parameters: %v", err)
@@ -68,6 +72,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	//spew.Dump(m)
 	var response string
+	processed := false
 
 	// Show help message
 	if m.Content == CommandPrefix+"help" || m.Content == CommandPrefix+"h" {
@@ -76,6 +81,12 @@ _w set ##### (US Zip code) to set your weather location
 _w to see your weather
 _w ##### (US Zip code) to see weather somewhere in the US
 		`
+	}
+
+	if strings.HasPrefix(m.Content, CommandPrefix+"nameme") {
+		commandParts := strings.Split(m.Content, " ")
+		newNick := strings.Join(commandParts[1:], " ")
+		response = commands.SetNick(m, s, m.Author.ID, newNick)
 	}
 
 	// If the message is "ping" reply with "Pong!"
@@ -108,11 +119,12 @@ _w ##### (US Zip code) to see weather somewhere in the US
 		if err != nil {
 			response = "failed to set weather"
 		} else {
-			response = "Weather set: " + message
+			response = message
 		}
+		processed = true
 	}
 
-	if strings.HasPrefix(m.Content, CommandPrefix+"weather") || strings.HasPrefix(m.Content, CommandPrefix+"w") {
+	if processed == false && (strings.HasPrefix(m.Content, CommandPrefix+"weather") || strings.HasPrefix(m.Content, CommandPrefix+"w")) {
 		commandParts := strings.Split(m.Content, " ")
 
 		weatherLocation := ""
