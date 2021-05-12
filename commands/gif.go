@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 var tenorKey string
@@ -23,7 +21,6 @@ func getKey() string {
 func Gif(searchTerm string) string {
 
 	tenorUrl := "https://g.tenor.com/v1/search?q=" + searchTerm + "&key=" + getKey() + "&limit=1&contentfilter=off&media_filter=minimal&locale=en_US"
-	spew.Dump(tenorUrl)
 	res, err := http.Get(tenorUrl)
 	body, err := ioutil.ReadAll(res.Body)
 
@@ -33,8 +30,6 @@ func Gif(searchTerm string) string {
 
 	var gif_result results_set
 	json.Unmarshal(body, &gif_result)
-
-	spew.Dump(gif_result)
 
 	return gif_result.Results[0].Media[0].MediumGif.GifUrl + "\nPowered by Tenor yo"
 }

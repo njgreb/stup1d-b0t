@@ -148,7 +148,7 @@ func GetWeather(location string) (string, error) {
 }
 
 func GetPlainvilleWeather() (string, error) {
-	return GetWeather("Plainville,KS USA")
+	return GetWeather("67663")
 }
 
 // Open weather location struct

@@ -26,8 +26,6 @@ func init() {
 }
 
 func main() {
-	fmt.Println("Hello, World!")
-
 	communications.StartDiscord()
 
 	// Wait here until CTRL-C or other term signal is received.
