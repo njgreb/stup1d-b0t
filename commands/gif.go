@@ -59,7 +59,7 @@ type results_set struct {
 }
 
 type tenor_media struct {
-	MediumGif medium_gif `json:"mediumgif,omitempty"`
+	MediumGif medium_gif `json:"gif,omitempty"`
 }
 
 type medium_gif struct {
