@@ -107,6 +107,12 @@ _w ##### (US Zip code) to see weather somewhere in the US
 		response = "Yes...but he won't"
 	}
 
+	if strings.HasPrefix(m.Content, CommandPrefix+"gif") {
+		commandParts := strings.Split(m.Content, " ")
+		gifSearch := strings.Join(commandParts[1:], " ")
+		response = commands.Gif(gifSearch)
+	}
+
 	if strings.HasPrefix(m.Content, CommandPrefix+"version") || strings.HasPrefix(m.Content, CommandPrefix+"v") {
 		response = "Currently running stup1d version " + version.Version
 	}
