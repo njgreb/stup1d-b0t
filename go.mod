@@ -3,6 +3,7 @@ module github.com/njgreb/stup1d-b0t
 go 1.15
 
 require (
+	github.com/adrg/postcode v0.1.0
 	github.com/bwmarrin/discordgo v0.23.2
 	github.com/davecgh/go-spew v1.1.1
 	github.com/go-redis/redis v6.15.9+incompatible

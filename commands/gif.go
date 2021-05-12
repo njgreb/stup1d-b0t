@@ -2,7 +2,6 @@ package commands
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -23,9 +22,8 @@ func getKey() string {
 
 func Gif(searchTerm string) string {
 
-	tenorUrl := "https://g.tenor.com/v1/search?q=" + searchTerm + "&key=" + getKey() + "&limit=1&contentfilter=medium"
+	tenorUrl := "https://g.tenor.com/v1/search?q=" + searchTerm + "&key=" + getKey() + "&limit=1&contentfilter=off&media_filter=minimal&locale=en_US"
 	spew.Dump(tenorUrl)
-	fmt.Printf("Tenor URL is: %s\n", tenorUrl)
 	res, err := http.Get(tenorUrl)
 	body, err := ioutil.ReadAll(res.Body)
 

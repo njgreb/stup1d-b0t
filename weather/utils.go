@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/adrg/postcode"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/njgreb/stup1d-b0t/cache"
 )
@@ -70,6 +71,11 @@ func SetUserWeather(user string, location string) (string, error) {
 }
 
 func GetWeather(location string) (string, error) {
+	// Verify a valid postal code
+	if err := postcode.Validate(location); err != nil {
+		return "This command requires a valid US postal code at this time.", nil
+	}
+
 	// get lat/lon of the location provided
 	lat, lon := getLatLong(location)
 
