@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -10,14 +8,6 @@ import (
 
 	"github.com/njgreb/stup1d-b0t/communications"
 )
-
-// Bot parameters
-var (
-	GuildID        = flag.String("guild", "", "Test guild ID. If not passed - bot registers commands globally")
-	RemoveCommands = flag.Bool("rmcmd", true, "Remove all commands after shutdowning or not")
-)
-
-var ctx = context.Background()
 
 func init() {
 	fmt.Println("init")
