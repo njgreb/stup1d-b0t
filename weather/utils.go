@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/adrg/postcode"
+	"github.com/bwmarrin/discordgo"
+	embed "github.com/clinet/discordgo-embed"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/njgreb/stup1d-b0t/cache"
 )
@@ -56,24 +58,26 @@ func getLatLong(location string) (string, string) {
 	return fmt.Sprintf("%f", loc.Lat), fmt.Sprintf("%f", loc.Lon)
 }
 
-func SetUserWeather(user string, location string) (string, error) {
+func SetUserWeather(user string, location string) (string, discordgo.MessageEmbed, error) {
 
 	// store the value in redis
 	err := cache.Set(user, location, 0)
 	if err != nil {
-		return "Failed to save preferred weather location.", err
+		embedMessage := embed.NewGenericEmbed("Error", "Failed to save preferred weather location")
+		return "Failed to save preferred weather location.", *embedMessage, err
 	}
 
 	fmt.Printf("Location set, getting weather for %s, %s\n", user, location)
-	weatherString, err := GetWeather(location)
+	weatherString, embedWeather, err := GetWeather(location)
 
-	return "Preferred weather location set, latest weather:\n" + weatherString, nil
+	return "Preferred weather location set, latest weather:\n" + weatherString, embedWeather, nil
 }
 
-func GetWeather(location string) (string, error) {
-	// Verify a valid postal code
+func GetWeather(location string) (string, discordgo.MessageEmbed, error) {
+	// Verify a va)lid postal code
 	if err := postcode.Validate(location); err != nil {
-		return "This command requires a valid US postal code at this time.", nil
+		embedMessage := embed.NewGenericEmbed("Error", "This command requires a valid US postal code at this time.")
+		return "This command requires a valid US postal code at this time.", *embedMessage, nil
 	}
 
 	// get lat/lon of the location provided
@@ -82,26 +86,30 @@ func GetWeather(location string) (string, error) {
 	fmt.Printf("Loading weather for %s,%s\n", lat, lon)
 
 	// see if we have the result in the cache
-	val := cache.Get(lat + "," + lon)
-	if val != "" {
+	var weather_instance one_call_weather
+	weatherJson := cache.Get(lat + "," + lon)
+	if weatherJson != "" {
 		fmt.Printf("Weather found in cache\n")
-		return val, nil
+		json.Unmarshal([]byte(weatherJson), &weather_instance)
+	} else {
+		// zip code based search (USA)
+		//weatherUrl := "http://api.openweathermap.org/data/2.5/weather?zip=" + location + ",US&appid=" + getToken() + "&units=imperial"
+		weatherUrl := "https://api.openweathermap.org/data/2.5/onecall?lat=" + lat + "&lon=" + lon + "&appid=" + getToken() + "&units=imperial&exclude=hourly,minutely"
+		//spew.Dump(weatherUrl)
+		fmt.Printf("Weather URL is: %s\n", weatherUrl)
+		res, err := http.Get(weatherUrl)
+		weatherJson, err := ioutil.ReadAll(res.Body)
+
+		if err != nil {
+		}
+
+		json.Unmarshal(weatherJson, &weather_instance)
+		//spew.Dump(body)
 	}
 
-	// zip code based search (USA)
-	//weatherUrl := "http://api.openweathermap.org/data/2.5/weather?zip=" + location + ",US&appid=" + getToken() + "&units=imperial"
-	weatherUrl := "https://api.openweathermap.org/data/2.5/onecall?lat=" + lat + "&lon=" + lon + "&appid=" + getToken() + "&units=imperial&exclude=hourly,minutely"
-	//spew.Dump(weatherUrl)
-	fmt.Printf("Weather URL is: %s\n", weatherUrl)
-	res, err := http.Get(weatherUrl)
-	body, err := ioutil.ReadAll(res.Body)
-
-	var weather_instance one_call_weather
-	json.Unmarshal(body, &weather_instance)
-	//spew.Dump(body)
-
 	if len(weather_instance.Daily) == 0 {
-		return "Failed to load weather :(", nil
+		embedMessage := embed.NewGenericEmbed("Error", "Failed to load weather :(")
+		return "Failed to load weather :(", *embedMessage, nil
 	}
 
 	windDirectionText := "West"
@@ -134,9 +142,9 @@ func GetWeather(location string) (string, error) {
 	fmt.Println("ok, thats all the weather")
 
 	// store the value in redis
-	err = cache.Set(location, return_string, 1*time.Minute)
+	err := cache.Set(location, string(weatherJson), 1*time.Minute)
 	if err != nil {
-		return "", err
+		// should we do something here?
 	}
 
 	if err != nil {
@@ -144,11 +152,17 @@ func GetWeather(location string) (string, error) {
 		return_string = "I derped yo"
 	}
 
-	return return_string, nil
-}
+	embedOut := embed.NewEmbed().
+		SetTitle(fmt.Sprintf("Weather for %s", location)).
+		AddField("Current", fmt.Sprintf("%.1fF", weather_instance.Current.Temp)).
+		AddField("High/Low", fmt.Sprintf("%.1fF/%1.fF", weather_instance.Daily[0].Temp.Max, weather_instance.Daily[0].Temp.Min)).
+		AddField("Humidity", fmt.Sprintf("%d%%", weather_instance.Current.Humidity)).
+		AddField("Wind", fmt.Sprintf("%.1fmph @ %s", weather_instance.Current.WindSpeed, windDirectionText)).
+		SetFooter(weather_instance.Current.Weather[0].Description, fmt.Sprintf("http://openweathermap.org/img/wn/%s@2x.png", weather_instance.Current.Weather[0].Icon)).
+		InlineAllFields().
+		MessageEmbed
 
-func GetPlainvilleWeather() (string, error) {
-	return GetWeather("67663")
+	return return_string, *embedOut, nil
 }
 
 // Open weather location struct

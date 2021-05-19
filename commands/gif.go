@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -23,13 +24,13 @@ func getKey() string {
 	return tenorKey
 }
 
-func Gif(searchTerm string) string {
+func Gif(searchTerm string, imageOnly bool, contentfilter string) string {
 
 	var returnString string
 
 	if len(searchTerm) == 0 {
 		// Just get a trending gif
-		tenorUrl := "https://g.tenor.com/v1/trending?key=" + getKey() + "&media_filter=minimal&locale=en_US"
+		tenorUrl := "https://g.tenor.com/v1/trending?key=" + getKey() + "&media_filter=minimal&contentfilter=" + contentfilter + "locale=en_US"
 		spew.Dump(tenorUrl)
 		res, err := http.Get(tenorUrl)
 		body, err := ioutil.ReadAll(res.Body)
@@ -51,7 +52,7 @@ func Gif(searchTerm string) string {
 
 	} else {
 		// Find the perfect gif for the term
-		tenorUrl := "https://g.tenor.com/v1/search?q=" + searchTerm + "&key=" + getKey() + "&limit=1&contentfilter=off&media_filter=minimal&locale=en_US"
+		tenorUrl := "https://g.tenor.com/v1/search?q=" + url.QueryEscape(searchTerm) + "&key=" + getKey() + "&limit=20&contentfilter=off&media_filter=minimal&locale=en_US"
 		res, err := http.Get(tenorUrl)
 		body, err := ioutil.ReadAll(res.Body)
 
@@ -62,10 +63,15 @@ func Gif(searchTerm string) string {
 		var gif_result results_set
 		json.Unmarshal(body, &gif_result)
 
-		returnString = gif_result.Results[0].Media[0].MediumGif.GifUrl
+		randomIndex := rand.Intn(len(gif_result.Results))
+		fmt.Printf("picking image %d out of %d", randomIndex, len(gif_result.Results))
+		returnString = gif_result.Results[randomIndex].Media[0].MediumGif.GifUrl
 	}
 
-	return returnString + "\nPowered by Tenor yo"
+	if imageOnly == false {
+		returnString += "\nPowered by Tenor yo"
+	}
+	return returnString
 
 }
 

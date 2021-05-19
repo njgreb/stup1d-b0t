@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	embed "github.com/clinet/discordgo-embed"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/njgreb/stup1d-b0t/cache"
 	"github.com/njgreb/stup1d-b0t/commands"
 	"github.com/njgreb/stup1d-b0t/version"
@@ -24,6 +26,12 @@ var (
 type discordCommand interface {
 	parse() string
 	run() string
+}
+
+type CommandResponse struct {
+	simpleMessage string
+	embedMessage  *discordgo.MessageEmbed
+	messageType   int // 0 = simple, 1 = embed
 }
 
 func getSession() {
@@ -70,13 +78,14 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	//spew.Dump(m)
 	var response string
+	var commandResponse CommandResponse
 	processed := false
 
 	// Show help message
 	if m.Content == CommandPrefix+"help" || m.Content == CommandPrefix+"h" {
-		response = `
+		commandResponse.messageType = 0
+		commandResponse.simpleMessage = `
 _w set ##### (US Zip code) to set your weather location
 _w to see your weather
 _w ##### (US Zip code) to see weather somewhere in the US
@@ -86,48 +95,45 @@ _w ##### (US Zip code) to see weather somewhere in the US
 	if strings.HasPrefix(m.Content, CommandPrefix+"nameme") {
 		commandParts := strings.Split(m.Content, " ")
 		newNick := strings.Join(commandParts[1:], " ")
-		response = commands.SetNick(m, s, m.Author.ID, newNick)
-	}
-
-	// If the message is "ping" reply with "Pong!"
-	if m.Content == CommandPrefix+"ping" {
-		response = commands.Pong(m.Content)
-	}
-
-	// If the message is "pong" reply with "Ping!"
-	if m.Content == CommandPrefix+"pong" {
-		response = commands.Ping(m.Content)
-	}
-
-	if m.Content == "weather in gods country" {
-		response = commands.WeatherGodsCountry(m.Content)
-	}
-
-	if m.Content == "should jesse ride his bike today" {
-		response = "Yes...but he won't"
+		commandResponse.messageType = 0
+		commandResponse.simpleMessage = commands.SetNick(m, s, m.Author.ID, newNick)
 	}
 
 	if strings.HasPrefix(m.Content, CommandPrefix+"gif") {
 		commandParts := strings.Split(m.Content, " ")
 		gifSearch := strings.Join(commandParts[1:], " ")
-		response = commands.Gif(gifSearch)
+		commandResponse.messageType = 0
+		commandResponse.simpleMessage = commands.Gif(gifSearch, false, "off")
 	}
 
 	if strings.HasPrefix(m.Content, CommandPrefix+"version") || strings.HasPrefix(m.Content, CommandPrefix+"v") {
-		response = "Currently running stup1d version " + version.Version
+		commandResponse.messageType = 1
+
+		embedOut := embed.NewEmbed().
+			SetTitle("stup1d-b0t info").
+			AddField("Version", version.Version).
+			SetImage(commands.Gif("bots", true, "high")).
+			MessageEmbed
+
+		commandResponse.embedMessage = embedOut
+		fmt.Print("outputing version")
 	}
 
 	if strings.HasPrefix(m.Content, CommandPrefix+"weather set") || strings.HasPrefix(m.Content, CommandPrefix+"w set") {
 		commandParts := strings.Split(m.Content, " ")
 		fmt.Println("Weather set for " + commandParts[2])
-		message, err := weather.SetUserWeather(m.Author.ID, commandParts[2])
+		message, embedWeather, err := weather.SetUserWeather(m.Author.ID, commandParts[2])
 
 		if err != nil {
+			commandResponse.messageType = 0
 			response = "failed to set weather"
 		} else {
 			response = message
+			commandResponse.messageType = 1
+			commandResponse.embedMessage = &embedWeather
 		}
 		processed = true
+
 	}
 
 	if processed == false && (strings.HasPrefix(m.Content, CommandPrefix+"weather") || strings.HasPrefix(m.Content, CommandPrefix+"w")) {
@@ -140,24 +146,45 @@ _w ##### (US Zip code) to see weather somewhere in the US
 			// get the users preferred zip
 			val := cache.Get(m.Author.ID)
 			if val == "" {
-				response = "Failed to load weather without a zip code, use the command right or set a weather zip dork :( " + val
-				return
+				response = "Please set a preferred weather locationed with .w set #####"
+			} else {
+				weatherLocation = val
+				fmt.Println("weather loc is " + weatherLocation)
 			}
-			weatherLocation = val
-			fmt.Println("weather loc is " + weatherLocation)
 		} else {
-			weatherLocation = commandParts[1]
+			if commandParts[1] == "clear" {
+				cache.Set(m.Author.ID, "", -1)
+				response = "Preferred weather location cleared."
+			} else {
+				weatherLocation = commandParts[1]
+			}
 		}
 
-		fmt.Println("Weather for " + weatherLocation)
+		if weatherLocation != "" {
+			fmt.Println("Weather for " + weatherLocation)
 
-		weather, err := weather.GetWeather(weatherLocation)
+			weather, weatherEmbed, err := weather.GetWeather(weatherLocation)
+			commandResponse.embedMessage = &weatherEmbed
 
-		if err != nil {
-			response = "Failed to load weather :("
+			if err != nil {
+				response = "Failed to load weather :("
+			}
+			response = weather
 		}
-		response = weather
+
+		commandResponse.messageType = 0
+		if commandResponse.embedMessage != nil {
+			commandResponse.messageType = 1
+		}
+
+		commandResponse.simpleMessage = response
 	}
 
-	s.ChannelMessageSend(m.ChannelID, response)
+	if commandResponse.messageType == 0 {
+		s.ChannelMessageSend(m.ChannelID, commandResponse.simpleMessage)
+	} else {
+		spew.Dump(commandResponse)
+		s.ChannelMessageSendEmbed(m.ChannelID, commandResponse.embedMessage)
+	}
+
 }
