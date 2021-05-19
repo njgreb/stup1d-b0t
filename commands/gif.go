@@ -30,7 +30,7 @@ func Gif(searchTerm string, imageOnly bool, contentfilter string) string {
 
 	if len(searchTerm) == 0 {
 		// Just get a trending gif
-		tenorUrl := "https://g.tenor.com/v1/trending?key=" + getKey() + "&media_filter=minimal&contentfilter=" + contentfilter + "locale=en_US"
+		tenorUrl := "https://g.tenor.com/v1/trending?key=" + getKey() + "&media_filter=minimal&contentfilter=" + contentfilter + "&locale=en_US"
 		spew.Dump(tenorUrl)
 		res, err := http.Get(tenorUrl)
 		body, err := ioutil.ReadAll(res.Body)
