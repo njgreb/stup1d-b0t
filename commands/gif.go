@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/njgreb/stup1d-b0t/cache"
 )
 
 var tenorKey string
@@ -24,9 +25,17 @@ func getKey() string {
 	return tenorKey
 }
 
-func Gif(searchTerm string, imageOnly bool, contentfilter string) string {
+func Gif(searchTerm string, imageOnly bool, guildId string) string {
 
 	var returnString string
+
+	contentfilter := cache.Get("gifcontentfilter_" + guildId)
+
+	if contentfilter == "" {
+		// default to high filtering until it is set for a server
+		fmt.Println("No filtering set, defaulting to high")
+		contentfilter = "high"
+	}
 
 	if len(searchTerm) == 0 {
 		// Just get a trending gif
@@ -52,7 +61,7 @@ func Gif(searchTerm string, imageOnly bool, contentfilter string) string {
 
 	} else {
 		// Find the perfect gif for the term
-		tenorUrl := "https://g.tenor.com/v1/search?q=" + url.QueryEscape(searchTerm) + "&key=" + getKey() + "&limit=20&contentfilter=off&media_filter=minimal&locale=en_US"
+		tenorUrl := "https://g.tenor.com/v1/search?q=" + url.QueryEscape(searchTerm) + "&key=" + getKey() + "&limit=5&contentfilter=off&media_filter=minimal&locale=en_US"
 		res, err := http.Get(tenorUrl)
 		body, err := ioutil.ReadAll(res.Body)
 
