@@ -11,6 +11,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/njgreb/stup1d-b0t/cache"
 	"github.com/njgreb/stup1d-b0t/commands"
+	"github.com/njgreb/stup1d-b0t/gif"
 	"github.com/njgreb/stup1d-b0t/version"
 	"github.com/njgreb/stup1d-b0t/weather"
 )
@@ -92,6 +93,19 @@ _w ##### (US Zip code) to see weather somewhere in the US
 		`
 	}
 
+	if strings.HasPrefix(m.Content, CommandPrefix+"config") {
+		commandParts := strings.Split(m.Content, " ")
+
+		if commandParts[1] == "gifcontentfilter" {
+			commandResponse.messageType = 0
+			if gif.SetFilterLevel(m.GuildID, commandParts[2]) {
+				commandResponse.simpleMessage = "tenor filtering set to " + commandParts[2]
+			} else {
+				commandResponse.simpleMessage = "Invalid content filter sent. Please use: off, low, medium, high"
+			}
+		}
+	}
+
 	if strings.HasPrefix(m.Content, CommandPrefix+"nameme") {
 		commandParts := strings.Split(m.Content, " ")
 		newNick := strings.Join(commandParts[1:], " ")
@@ -103,7 +117,7 @@ _w ##### (US Zip code) to see weather somewhere in the US
 		commandParts := strings.Split(m.Content, " ")
 		gifSearch := strings.Join(commandParts[1:], " ")
 		commandResponse.messageType = 0
-		commandResponse.simpleMessage = commands.Gif(gifSearch, false, "off")
+		commandResponse.simpleMessage = commands.Gif(gifSearch, false, m.GuildID)
 	}
 
 	if strings.HasPrefix(m.Content, CommandPrefix+"version") || strings.HasPrefix(m.Content, CommandPrefix+"v") {
@@ -112,7 +126,7 @@ _w ##### (US Zip code) to see weather somewhere in the US
 		embedOut := embed.NewEmbed().
 			SetTitle("stup1d-b0t info").
 			AddField("Version", version.Version).
-			SetImage(commands.Gif("bots", true, "high")).
+			SetImage(commands.Gif("bots", true, m.GuildID)).
 			MessageEmbed
 
 		commandResponse.embedMessage = embedOut
