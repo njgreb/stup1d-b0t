@@ -26,14 +26,15 @@ func getToken() string {
 	return weatherApiToken
 }
 
-func getLatLong(location string) (string, string) {
+func getLatLong(location string) encoded_location {
+	var loc encoded_location
 
 	// see if we have the result in the cache
-	val := cache.Get("get_lat_lon_" + location)
+	val := cache.Get("weather_lat_lon_" + location)
 	if val != "" {
-		parts := strings.Split(val, ",")
+		json.Unmarshal([]byte(val), &loc)
 		fmt.Println("we have this location, we good")
-		return parts[0], parts[1]
+		return loc
 	}
 
 	locationUrl := "http://api.openweathermap.org/geo/1.0/zip?zip=" + location + ",US&appid=" + getToken()
@@ -46,16 +47,16 @@ func getLatLong(location string) (string, string) {
 
 	body, err := ioutil.ReadAll(res.Body)
 
+	fmt.Println("body of geocoding...")
 	spew.Dump(body)
 
-	var loc encoded_location
 	json.Unmarshal(body, &loc)
 	spew.Dump(loc)
 
 	// store the values in the cache
-	cache.Set("get_lat_lon_"+location, fmt.Sprintf("%f", loc.Lat)+","+fmt.Sprintf("%f", loc.Lon), 0)
+	cache.Set("weather_lat_lon_"+location, string(body), 0)
 
-	return fmt.Sprintf("%f", loc.Lat), fmt.Sprintf("%f", loc.Lon)
+	return loc
 }
 
 func SetUserWeather(user string, location string) (string, discordgo.MessageEmbed, error) {
@@ -81,20 +82,22 @@ func GetWeather(location string) (string, discordgo.MessageEmbed, error) {
 	}
 
 	// get lat/lon of the location provided
-	lat, lon := getLatLong(location)
+	loc := getLatLong(location)
 
-	fmt.Printf("Loading weather for %s,%s\n", lat, lon)
+	fmt.Printf("Loading weather for %s,%s\n", loc.Lat, loc.Lon)
 
 	// see if we have the result in the cache
 	var weather_instance one_call_weather
-	weatherJson := cache.Get(lat + "," + lon)
+	latString := fmt.Sprintf("%f", loc.Lat)
+	lonString := fmt.Sprintf("%f", loc.Lon)
+	weatherJson := cache.Get(latString + "," + lonString)
 	if weatherJson != "" {
 		fmt.Printf("Weather found in cache\n")
 		json.Unmarshal([]byte(weatherJson), &weather_instance)
 	} else {
 		// zip code based search (USA)
 		//weatherUrl := "http://api.openweathermap.org/data/2.5/weather?zip=" + location + ",US&appid=" + getToken() + "&units=imperial"
-		weatherUrl := "https://api.openweathermap.org/data/2.5/onecall?lat=" + lat + "&lon=" + lon + "&appid=" + getToken() + "&units=imperial&exclude=hourly,minutely"
+		weatherUrl := "https://api.openweathermap.org/data/2.5/onecall?lat=" + latString + "&lon=" + lonString + "&appid=" + getToken() + "&units=imperial&exclude=hourly,minutely"
 		//spew.Dump(weatherUrl)
 		fmt.Printf("Weather URL is: %s\n", weatherUrl)
 		res, err := http.Get(weatherUrl)
@@ -135,7 +138,7 @@ func GetWeather(location string) (string, discordgo.MessageEmbed, error) {
 		weather_instance.Current.WindSpeed,
 		windDirectionText,
 		weather_instance.Current.WindDeg,
-		location)
+		loc.Name)
 
 	fmt.Println("here comes the weather baby!")
 	//spew.Dump(weather_instance)
@@ -153,7 +156,7 @@ func GetWeather(location string) (string, discordgo.MessageEmbed, error) {
 	}
 
 	embedOut := embed.NewEmbed().
-		SetTitle(fmt.Sprintf("Weather for %s", location)).
+		SetTitle(fmt.Sprintf("Weather for %s", loc.Name)).
 		AddField("Current", fmt.Sprintf("%.1fF", weather_instance.Current.Temp)).
 		AddField("High/Low", fmt.Sprintf("%.1fF/%1.fF", weather_instance.Daily[0].Temp.Max, weather_instance.Daily[0].Temp.Min)).
 		AddField("Humidity", fmt.Sprintf("%d%%", weather_instance.Current.Humidity)).
