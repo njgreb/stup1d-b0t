@@ -237,11 +237,11 @@ func GetWeatherLong(location string) (string, discordgo.MessageEmbed, error) {
 
 	embedOut := embed.NewEmbed().
 		SetTitle(fmt.Sprintf("Forecast for %s", loc.Name)).
-		AddField("Today", fmt.Sprintf("%.1fF/%.1fF", weather_instance.Daily[0].Temp.Min, weather_instance.Daily[0].Temp.Max)).
-		AddField("Tomorrow", fmt.Sprintf("%.1fF/%.1fF", weather_instance.Daily[1].Temp.Min, weather_instance.Daily[1].Temp.Max)).
-		AddField(time.Unix(int64(weather_instance.Daily[2].Dt), 0).Weekday().String(), fmt.Sprintf("%.1fF/%.1fF", weather_instance.Daily[2].Temp.Min, weather_instance.Daily[2].Temp.Max)).
-		AddField(time.Unix(int64(weather_instance.Daily[3].Dt), 0).Weekday().String(), fmt.Sprintf("%.1fF/%.1fF", weather_instance.Daily[3].Temp.Min, weather_instance.Daily[3].Temp.Max)).
-		AddField(time.Unix(int64(weather_instance.Daily[4].Dt), 0).Weekday().String(), fmt.Sprintf("%.1fF/%.1fF", weather_instance.Daily[4].Temp.Min, weather_instance.Daily[4].Temp.Max)).
+		AddField("Today", fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[0].Temp.Max, weather_instance.Daily[0].Temp.Min, weather_instance.Daily[0].Weather[0].Description)).
+		AddField("Tomorrow", fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[1].Temp.Max, weather_instance.Daily[1].Temp.Min, weather_instance.Daily[1].Weather[0].Description)).
+		AddField(time.Unix(int64(weather_instance.Daily[2].Dt), 0).Weekday().String(), fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[2].Temp.Max, weather_instance.Daily[2].Temp.Min, weather_instance.Daily[2].Weather[0].Description)).
+		AddField(time.Unix(int64(weather_instance.Daily[3].Dt), 0).Weekday().String(), fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[3].Temp.Max, weather_instance.Daily[3].Temp.Min, weather_instance.Daily[3].Weather[0].Description)).
+		AddField(time.Unix(int64(weather_instance.Daily[4].Dt), 0).Weekday().String(), fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[4].Temp.Max, weather_instance.Daily[4].Temp.Min, weather_instance.Daily[4].Weather[0].Description)).
 		InlineAllFields().
 		MessageEmbed
 
