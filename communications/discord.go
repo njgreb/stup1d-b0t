@@ -194,6 +194,51 @@ _w ##### (US Zip code) to see weather somewhere in the US
 		commandResponse.simpleMessage = response
 	}
 
+	// extended forecast!
+	if processed == false && (strings.HasPrefix(m.Content, CommandPrefix+"weather long") || strings.HasPrefix(m.Content, CommandPrefix+"wl")) {
+		commandParts := strings.Split(m.Content, " ")
+
+		weatherLocation := ""
+
+		if len(commandParts) == 1 {
+			fmt.Println("Getting users prefered weather:" + m.Author.Username)
+			// get the users preferred zip
+			val := cache.Get(m.Author.ID)
+			if val == "" {
+				response = "Please set a preferred weather locationed with .w set #####"
+			} else {
+				weatherLocation = val
+				fmt.Println("weather loc is " + weatherLocation)
+			}
+		} else {
+			if commandParts[1] == "clear" {
+				cache.Set(m.Author.ID, "", -1)
+				response = "Preferred weather location cleared."
+			} else {
+				weatherLocation = commandParts[1]
+			}
+		}
+
+		if weatherLocation != "" {
+			fmt.Println("Weather for " + weatherLocation)
+
+			weather, weatherEmbed, err := weather.GetWeatherLong(weatherLocation)
+			commandResponse.embedMessage = &weatherEmbed
+
+			if err != nil {
+				response = "Failed to load weather :("
+			}
+			response = weather
+		}
+
+		commandResponse.messageType = 0
+		if commandResponse.embedMessage != nil {
+			commandResponse.messageType = 1
+		}
+
+		commandResponse.simpleMessage = response
+	}
+
 	if commandResponse.messageType == 0 {
 		s.ChannelMessageSend(m.ChannelID, commandResponse.simpleMessage)
 	} else {
