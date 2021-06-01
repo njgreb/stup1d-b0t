@@ -87,9 +87,13 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Content == CommandPrefix+"help" || m.Content == CommandPrefix+"h" {
 		commandResponse.messageType = 0
 		commandResponse.simpleMessage = `
-_w set ##### (US Zip code) to set your weather location
-_w to see your weather
-_w ##### (US Zip code) to see weather somewhere in the US
+.w set ##### (US Zip code) to set your weather location
+.w to see your weather
+.w ##### (US Zip code) to see weather somewhere in the US
+.wf to see your forecast
+.wf ##### (US Zip Code) to see forecast for somewhere in the US
+.gif See a random trending gif
+.gif SEARCHTERM see a random gif for SEARCHTERM
 		`
 	}
 
@@ -133,7 +137,53 @@ _w ##### (US Zip code) to see weather somewhere in the US
 		fmt.Print("outputing version")
 	}
 
-	if strings.HasPrefix(m.Content, CommandPrefix+"weather set") || strings.HasPrefix(m.Content, CommandPrefix+"w set") {
+	// extended forecast!
+	if processed == false && (strings.HasPrefix(m.Content, CommandPrefix+"weather forecast") || strings.HasPrefix(m.Content, CommandPrefix+"wf")) {
+		commandParts := strings.Split(m.Content, " ")
+
+		weatherLocation := ""
+
+		if len(commandParts) == 1 {
+			fmt.Println("Getting users prefered weather:" + m.Author.Username)
+			// get the users preferred zip
+			val := cache.Get(m.Author.ID)
+			if val == "" {
+				response = "Please set a preferred weather locationed with .w set #####"
+			} else {
+				weatherLocation = val
+				fmt.Println("weather loc is " + weatherLocation)
+			}
+		} else {
+			if commandParts[1] == "clear" {
+				cache.Set(m.Author.ID, "", -1)
+				response = "Preferred weather location cleared."
+			} else {
+				weatherLocation = commandParts[1]
+			}
+		}
+
+		if weatherLocation != "" {
+			fmt.Println("Weather for " + weatherLocation)
+
+			weather, weatherEmbed, err := weather.GetWeatherLong(weatherLocation)
+			commandResponse.embedMessage = &weatherEmbed
+
+			if err != nil {
+				response = "Failed to load weather :("
+			}
+			response = weather
+		}
+
+		commandResponse.messageType = 0
+		if commandResponse.embedMessage != nil {
+			commandResponse.messageType = 1
+		}
+
+		commandResponse.simpleMessage = response
+		processed = true
+	}
+
+	if processed == false && (strings.HasPrefix(m.Content, CommandPrefix+"weather set") || strings.HasPrefix(m.Content, CommandPrefix+"w set")) {
 		commandParts := strings.Split(m.Content, " ")
 		fmt.Println("Weather set for " + commandParts[2])
 		message, embedWeather, err := weather.SetUserWeather(m.Author.ID, commandParts[2])
@@ -178,51 +228,6 @@ _w ##### (US Zip code) to see weather somewhere in the US
 			fmt.Println("Weather for " + weatherLocation)
 
 			weather, weatherEmbed, err := weather.GetWeather(weatherLocation)
-			commandResponse.embedMessage = &weatherEmbed
-
-			if err != nil {
-				response = "Failed to load weather :("
-			}
-			response = weather
-		}
-
-		commandResponse.messageType = 0
-		if commandResponse.embedMessage != nil {
-			commandResponse.messageType = 1
-		}
-
-		commandResponse.simpleMessage = response
-	}
-
-	// extended forecast!
-	if processed == false && (strings.HasPrefix(m.Content, CommandPrefix+"weather long") || strings.HasPrefix(m.Content, CommandPrefix+"wl")) {
-		commandParts := strings.Split(m.Content, " ")
-
-		weatherLocation := ""
-
-		if len(commandParts) == 1 {
-			fmt.Println("Getting users prefered weather:" + m.Author.Username)
-			// get the users preferred zip
-			val := cache.Get(m.Author.ID)
-			if val == "" {
-				response = "Please set a preferred weather locationed with .w set #####"
-			} else {
-				weatherLocation = val
-				fmt.Println("weather loc is " + weatherLocation)
-			}
-		} else {
-			if commandParts[1] == "clear" {
-				cache.Set(m.Author.ID, "", -1)
-				response = "Preferred weather location cleared."
-			} else {
-				weatherLocation = commandParts[1]
-			}
-		}
-
-		if weatherLocation != "" {
-			fmt.Println("Weather for " + weatherLocation)
-
-			weather, weatherEmbed, err := weather.GetWeatherLong(weatherLocation)
 			commandResponse.embedMessage = &weatherEmbed
 
 			if err != nil {

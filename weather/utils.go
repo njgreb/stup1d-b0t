@@ -76,39 +76,14 @@ func SetUserWeather(user string, location string) (string, discordgo.MessageEmbe
 
 func GetWeather(location string) (string, discordgo.MessageEmbed, error) {
 	// Verify a va)lid postal code
+	// TODO put this in loadWeatherJson()
 	if err := postcode.Validate(location); err != nil {
 		embedMessage := embed.NewGenericEmbed("Error", "This command requires a valid US postal code at this time.")
 		return "This command requires a valid US postal code at this time.", *embedMessage, nil
 	}
 
-	// get lat/lon of the location provided
+	weather_instance := loadWeatherJson(location)
 	loc := getLatLong(location)
-
-	fmt.Printf("Loading weather for %s,%s\n", loc.Lat, loc.Lon)
-
-	// see if we have the result in the cache
-	var weather_instance one_call_weather
-	latString := fmt.Sprintf("%f", loc.Lat)
-	lonString := fmt.Sprintf("%f", loc.Lon)
-	weatherJson := cache.Get(latString + "," + lonString)
-	if weatherJson != "" {
-		fmt.Printf("Weather found in cache\n")
-		json.Unmarshal([]byte(weatherJson), &weather_instance)
-	} else {
-		// zip code based search (USA)
-		//weatherUrl := "http://api.openweathermap.org/data/2.5/weather?zip=" + location + ",US&appid=" + getToken() + "&units=imperial"
-		weatherUrl := "https://api.openweathermap.org/data/2.5/onecall?lat=" + latString + "&lon=" + lonString + "&appid=" + getToken() + "&units=imperial&exclude=hourly,minutely"
-		//spew.Dump(weatherUrl)
-		fmt.Printf("Weather URL is: %s\n", weatherUrl)
-		res, err := http.Get(weatherUrl)
-		weatherJson, err := ioutil.ReadAll(res.Body)
-
-		if err != nil {
-		}
-
-		json.Unmarshal(weatherJson, &weather_instance)
-		//spew.Dump(body)
-	}
 
 	if len(weather_instance.Daily) == 0 {
 		embedMessage := embed.NewGenericEmbed("Error", "Failed to load weather :(")
@@ -140,21 +115,6 @@ func GetWeather(location string) (string, discordgo.MessageEmbed, error) {
 		weather_instance.Current.WindDeg,
 		loc.Name)
 
-	fmt.Println("here comes the weather baby!")
-	//spew.Dump(weather_instance)
-	fmt.Println("ok, thats all the weather")
-
-	// store the value in redis
-	err := cache.Set(location, string(weatherJson), 1*time.Minute)
-	if err != nil {
-		// should we do something here?
-	}
-
-	if err != nil {
-		fmt.Println(err)
-		return_string = "I derped yo"
-	}
-
 	embedOut := embed.NewEmbed().
 		SetTitle(fmt.Sprintf("Weather for %s", loc.Name)).
 		AddField("Current", fmt.Sprintf("%.1fF", weather_instance.Current.Temp)).
@@ -175,10 +135,39 @@ func GetWeatherLong(location string) (string, discordgo.MessageEmbed, error) {
 		return "This command requires a valid US postal code at this time.", *embedMessage, nil
 	}
 
-	// get lat/lon of the location provided
+	weather_instance := loadWeatherJson(location)
 	loc := getLatLong(location)
 
-	fmt.Printf("Loading weather for %s,%s\n", loc.Lat, loc.Lon)
+	if len(weather_instance.Daily) == 0 {
+		embedMessage := embed.NewGenericEmbed("Error", "Failed to load weather :(")
+		return "Failed to load weather :(", *embedMessage, nil
+	}
+
+	return_string := fmt.Sprintf("Today: %.1fF/%.1fF - %s | Tomorrow: %.1fF/%.1fF - %s | %s: %.1fF/%.1fF - %s | %s: %.1fF/%.1fF - %s | %s: %.1fF/%.1fF - %s",
+		weather_instance.Daily[0].Temp.Max, weather_instance.Daily[0].Temp.Min, weather_instance.Daily[0].Weather[0].Description,
+		weather_instance.Daily[1].Temp.Max, weather_instance.Daily[1].Temp.Min, weather_instance.Daily[1].Weather[0].Description,
+		time.Unix(int64(weather_instance.Daily[2].Dt), 0).Weekday().String(), weather_instance.Daily[2].Temp.Max, weather_instance.Daily[2].Temp.Min, weather_instance.Daily[2].Weather[0].Description,
+		time.Unix(int64(weather_instance.Daily[3].Dt), 0).Weekday().String(), weather_instance.Daily[3].Temp.Max, weather_instance.Daily[3].Temp.Min, weather_instance.Daily[3].Weather[0].Description,
+		time.Unix(int64(weather_instance.Daily[4].Dt), 0).Weekday().String(), weather_instance.Daily[4].Temp.Max, weather_instance.Daily[4].Temp.Min, weather_instance.Daily[4].Weather[0].Description,
+	)
+
+	embedOut := embed.NewEmbed().
+		SetTitle(fmt.Sprintf("Forecast for %s", loc.Name)).
+		AddField("Today", fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[0].Temp.Max, weather_instance.Daily[0].Temp.Min, weather_instance.Daily[0].Weather[0].Description)).
+		AddField("Tomorrow", fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[1].Temp.Max, weather_instance.Daily[1].Temp.Min, weather_instance.Daily[1].Weather[0].Description)).
+		AddField(time.Unix(int64(weather_instance.Daily[2].Dt), 0).Weekday().String(), fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[2].Temp.Max, weather_instance.Daily[2].Temp.Min, weather_instance.Daily[2].Weather[0].Description)).
+		AddField(time.Unix(int64(weather_instance.Daily[3].Dt), 0).Weekday().String(), fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[3].Temp.Max, weather_instance.Daily[3].Temp.Min, weather_instance.Daily[3].Weather[0].Description)).
+		AddField(time.Unix(int64(weather_instance.Daily[4].Dt), 0).Weekday().String(), fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[4].Temp.Max, weather_instance.Daily[4].Temp.Min, weather_instance.Daily[4].Weather[0].Description)).
+		SetFooter(fmt.Sprintf("Currently %.1fF | %s", weather_instance.Current.Temp, weather_instance.Current.Weather[0].Description), fmt.Sprintf("http://openweathermap.org/img/wn/%s@2x.png", weather_instance.Current.Weather[0].Icon)).
+		InlineAllFields().
+		MessageEmbed
+
+	return return_string, *embedOut, nil
+}
+
+func loadWeatherJson(location string) one_call_weather {
+	// get lat/lon of the location provided
+	loc := getLatLong(location)
 
 	// see if we have the result in the cache
 	var weather_instance one_call_weather
@@ -200,52 +189,17 @@ func GetWeatherLong(location string) (string, discordgo.MessageEmbed, error) {
 		if err != nil {
 		}
 
+		// store the value in redis
+		err = cache.Set("forecast_"+latString+","+lonString, string(weatherJson), 1*time.Minute)
+		if err != nil {
+			// should we do something here?
+		}
+
 		json.Unmarshal(weatherJson, &weather_instance)
 		//spew.Dump(body)
 	}
 
-	if len(weather_instance.Daily) == 0 {
-		embedMessage := embed.NewGenericEmbed("Error", "Failed to load weather :(")
-		return "Failed to load weather :(", *embedMessage, nil
-	}
-
-	return_string := fmt.Sprintf("%s, %.1fF | High: %.1fF | Low: %.1fF | Humidity: %d%% | Wind: %.1fmph @ %s (%d deg) | %s",
-		weather_instance.Current.Weather[0].Description,
-		weather_instance.Current.Temp,
-		weather_instance.Daily[0].Temp.Max,
-		weather_instance.Daily[0].Temp.Min,
-		weather_instance.Current.Humidity,
-		weather_instance.Current.WindSpeed,
-		"test",
-		weather_instance.Current.WindDeg,
-		loc.Name)
-
-	fmt.Println("here comes the weather baby!")
-	//spew.Dump(weather_instance)
-	fmt.Println("ok, thats all the weather")
-
-	// store the value in redis
-	err := cache.Set("forecast_"+latString+","+lonString, string(weatherJson), 1*time.Minute)
-	if err != nil {
-		// should we do something here?
-	}
-
-	if err != nil {
-		fmt.Println(err)
-		return_string = "I derped yo"
-	}
-
-	embedOut := embed.NewEmbed().
-		SetTitle(fmt.Sprintf("Forecast for %s", loc.Name)).
-		AddField("Today", fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[0].Temp.Max, weather_instance.Daily[0].Temp.Min, weather_instance.Daily[0].Weather[0].Description)).
-		AddField("Tomorrow", fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[1].Temp.Max, weather_instance.Daily[1].Temp.Min, weather_instance.Daily[1].Weather[0].Description)).
-		AddField(time.Unix(int64(weather_instance.Daily[2].Dt), 0).Weekday().String(), fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[2].Temp.Max, weather_instance.Daily[2].Temp.Min, weather_instance.Daily[2].Weather[0].Description)).
-		AddField(time.Unix(int64(weather_instance.Daily[3].Dt), 0).Weekday().String(), fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[3].Temp.Max, weather_instance.Daily[3].Temp.Min, weather_instance.Daily[3].Weather[0].Description)).
-		AddField(time.Unix(int64(weather_instance.Daily[4].Dt), 0).Weekday().String(), fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[4].Temp.Max, weather_instance.Daily[4].Temp.Min, weather_instance.Daily[4].Weather[0].Description)).
-		InlineAllFields().
-		MessageEmbed
-
-	return return_string, *embedOut, nil
+	return weather_instance
 }
 
 // Open weather location struct

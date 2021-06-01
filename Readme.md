@@ -33,9 +33,12 @@ If you don't set these...its gonna be borked.
 List of current commands.
 | Command | Description |
 | -- | -- |
+| .help | Get the help text |
 | .w ##### | Get weather for the provided US zip code |
 | .w set ##### | Set the users preferred weather zip code |
 | .w | Get the users current weather |
+| .wf | Get the users current forecast |
+| .wf ##### | Get the forecast for the provided US zip code |
 | .version | Get the currently running version |
 | .gif | Get a random trending gif |
 | .gif SEARCHTERM | Get the most popular gif for SEARCHTERM |
