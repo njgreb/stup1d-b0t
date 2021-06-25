@@ -118,6 +118,7 @@ func GetWeather(location string) (string, discordgo.MessageEmbed, error) {
 	embedOut := embed.NewEmbed().
 		SetTitle(fmt.Sprintf("Weather for %s", loc.Name)).
 		AddField("Current", fmt.Sprintf("%.1fF", weather_instance.Current.Temp)).
+		AddField("Feels Like", fmt.Sprintf("%.1fF", weather_instance.Current.FeelsLike)).
 		AddField("High/Low", fmt.Sprintf("%.1fF/%1.fF", weather_instance.Daily[0].Temp.Max, weather_instance.Daily[0].Temp.Min)).
 		AddField("Humidity", fmt.Sprintf("%d%%", weather_instance.Current.Humidity)).
 		AddField("Wind", fmt.Sprintf("%.1fmph @ %s", weather_instance.Current.WindSpeed, windDirectionText)).
@@ -158,7 +159,7 @@ func GetWeatherLong(location string) (string, discordgo.MessageEmbed, error) {
 		AddField(time.Unix(int64(weather_instance.Daily[2].Dt), 0).Weekday().String(), fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[2].Temp.Max, weather_instance.Daily[2].Temp.Min, weather_instance.Daily[2].Weather[0].Description)).
 		AddField(time.Unix(int64(weather_instance.Daily[3].Dt), 0).Weekday().String(), fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[3].Temp.Max, weather_instance.Daily[3].Temp.Min, weather_instance.Daily[3].Weather[0].Description)).
 		AddField(time.Unix(int64(weather_instance.Daily[4].Dt), 0).Weekday().String(), fmt.Sprintf("%.1fF/%.1fF - %s", weather_instance.Daily[4].Temp.Max, weather_instance.Daily[4].Temp.Min, weather_instance.Daily[4].Weather[0].Description)).
-		SetFooter(fmt.Sprintf("Currently %.1fF | %s", weather_instance.Current.Temp, weather_instance.Current.Weather[0].Description), fmt.Sprintf("http://openweathermap.org/img/wn/%s@2x.png", weather_instance.Current.Weather[0].Icon)).
+		SetFooter(fmt.Sprintf("Currently %.1fF | Feels like %.1f | %s", weather_instance.Current.Temp, weather_instance.Current.FeelsLike, weather_instance.Current.Weather[0].Description), fmt.Sprintf("http://openweathermap.org/img/wn/%s@2x.png", weather_instance.Current.Weather[0].Icon)).
 		InlineAllFields().
 		MessageEmbed
 
