@@ -117,7 +117,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		commandResponse.simpleMessage = commands.SetNick(m, s, m.Author.ID, newNick)
 	}
 
-	if strings.HasPrefix(m.Content, CommandPrefix+"gif") {
+	if strings.HasPrefix(m.Content, CommandPrefix+"gif") || strings.HasPrefix(m.Content, CommandPrefix+"bettergif") || strings.HasPrefix(m.Content, CommandPrefix+"bgif") {
 		commandParts := strings.Split(m.Content, " ")
 		gifSearch := strings.Join(commandParts[1:], " ")
 		commandResponse.messageType = 0
